@@ -1,3 +1,5 @@
+import javax.swing.JButton;
+import javax.swing.JComboBox;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
@@ -7,6 +9,8 @@ import javax.swing.event.ChangeListener;
 import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Point;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
 import java.util.Collections;
 import java.util.LinkedList;
 import java.util.List;
@@ -48,6 +52,10 @@ public class Main {
     private static Point snakeHead;
     private static Point food;
     private static boolean playing;
+    private static JLabel score;
+    private static JComboBox<String> botSelection;
+    private static int foodEaten;
+    private static int moves;
 
     public static void main(String[] args) {
         grid = new SimpleGrid(GRID_WIDTH, GRID_HEIGHT, CELL_SIZE, 1, "Snake AI");
@@ -56,14 +64,16 @@ public class Main {
         grid.setColor(SNAKE, Color.BLACK);
 
         loadedBots = new LinkedList<>();
+        loadedBots.add(new GreedyBot());
+        loadedBots.add(new BruteBot());
         loadedBots.add(new RandomBot());
         snake = loadedBots.get(0);
 
         rand = new Random();
         snakeParts = new LinkedList<>();
 
-        initializeGUI();
         initializeGame();
+        initializeGUI();
         run();
     }
 
@@ -72,8 +82,11 @@ public class Main {
      */
     private static void initializeGUI() {
         JFrame frame = grid.getFrame();
+
+        ////////// Control Panel \\\\\\\\\\
         JPanel controlPanel = new JPanel();
 
+        // Speed controls
         controlPanel.add(new JLabel("Slow"));
         JSlider speedSlider = new JSlider(JSlider.HORIZONTAL, 0, MAX_DELAY, MAX_DELAY - DEFAULT_DELAY);
         speedSlider.addChangeListener(new ChangeListener() {
@@ -86,9 +99,58 @@ public class Main {
         controlPanel.add(speedSlider);
         controlPanel.add(new JLabel("Fast"));
 
+        // Bot selection dropdown box
+        String[] botNames = new String[loadedBots.size()];
+        for (int i = 0; i < loadedBots.size(); i++) {
+            botNames[i] = loadedBots.get(i).toString();
+        }
+        botSelection = new JComboBox<>(botNames);
+        botSelection.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                snake = loadedBots.get(botSelection.getSelectedIndex());
+            }
+        });
+        controlPanel.add(botSelection);
+
+        // Run button
+        JButton runButton = new JButton("Run");
+        runButton.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                initializeGame();
+                playing = true;
+            }
+        });
+        controlPanel.add(runButton);
+
+        // Stop button
+        JButton stopButton = new JButton("Stop");
+        stopButton.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                playing = false;
+            }
+        });
+        controlPanel.add(stopButton);
+
+        ////////// Statistics Display \\\\\\\\\\
+        JPanel statsPanel = new JPanel();
+        score = new JLabel();
+        updateStats();
+        statsPanel.add(score);
+
         frame.add(controlPanel, BorderLayout.SOUTH);
+        frame.add(statsPanel, BorderLayout.NORTH);
         frame.pack();
         frame.setLocationRelativeTo(null);
+    }
+
+    /**
+     * Updates the GUI with the current score and number of moves taken by the bot.
+     */
+    private static void updateStats() {
+        score.setText("Score: " + foodEaten + " Moves: " + moves);
     }
 
     /**
@@ -105,7 +167,10 @@ public class Main {
 
         snakeParts.clear();
         snakeParts.add(snakeHead);
+        grid.set(snakeHead, SNAKE);
 
+        foodEaten = 0;
+        moves = 0;
         addFood();
         playing = true;
     }
@@ -145,16 +210,21 @@ public class Main {
     }
 
     /**
-     * Main game loop. Controls game and AI progression.
+     * Main game loop. Runs the currently selected algorithm until it loses if playing is enabled.
      */
-    public static void run() {
+    private static void run() {
         while (true) {
             while (playing) {
-                Direction moved = snake.getMove();
-                snakeHead = get(snakeHead, moved);
+                botSelection.setEnabled(false);
+
+                Direction move = snake.getMove();
+                snakeHead = get(snakeHead, move);
+                moves++;
 
                 if (snakeHead == null || grid.get(snakeHead) == SNAKE) {
                     playing = false;
+                    updateStats();
+                    System.out.println("Game over!");
                     break;
                 }
                 snakeParts.add(snakeHead);
@@ -162,18 +232,21 @@ public class Main {
                 if (grid.get(snakeHead) == FOOD) {
                     // If it ate food, add another piece
                     addFood();
+                    foodEaten++;
                 } else {
                     // If it didn't eat food, remove tail of the snake
                     grid.set(snakeParts.remove(), EMPTY);
                 }
                 grid.set(snakeHead, SNAKE);
 
+                updateStats();
                 try {
                     Thread.sleep(selectedDelay);
                 } catch (InterruptedException e) {
                     e.printStackTrace();
                 }
             }
+            botSelection.setEnabled(true);
         }
     }
 
@@ -197,7 +270,8 @@ public class Main {
      * @param p The point to get the adjacent point of.
      * @param d The direction of the adjacent point to get.
      * @return The point directly adjacent to the given one, in the given direction. If this
-     * adjacent point is outside of the playing area, returns null instead.
+     * adjacent point is outside of the play area, returns null instead. If the given direction is
+     * null, returns the given point.
      */
     public static Point get(Point p, Direction d) {
         Point adjacent = new Point(p);
@@ -208,7 +282,7 @@ public class Main {
             adjacent.translate(1, 0);
         } else if (d == Direction.DOWN) {
             adjacent.translate(0, 1);
-        } else { // d == Direction.LEFT
+        } else if (d == Direction.LEFT) {
             adjacent.translate(-1, 0);
         }
 
@@ -222,5 +296,24 @@ public class Main {
      */
     public static Point getFoodPos() {
         return food;
+    }
+
+    /**
+     * Returns the width of the play area in number of cells.
+     *
+     * @return The width of the play area in number of cells.
+     */
+    public static int getGridWidth() {
+        return grid.getWidth();
+    }
+
+
+    /**
+     * Returns the height of the play area in number of cells.
+     *
+     * @return The height of the play area in number of cells.
+     */
+    public static int getGridHeight() {
+        return grid.getHeight();
     }
 }

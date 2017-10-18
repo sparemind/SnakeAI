@@ -17,4 +17,11 @@ public interface SnakeBot {
      * @return The direction of this snake's next move.
      */
     Direction getMove();
+
+    /**
+     * Returns the name of this bot.
+     *
+     * @return The name of this bot.
+     */
+    String toString();
 }

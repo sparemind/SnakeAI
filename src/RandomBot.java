@@ -4,7 +4,7 @@ import java.util.Collections;
 import java.util.List;
 
 /**
- * Strategy: Just move randomly and don't collide with itself or go out of bounds
+ * Strategy: Make random moves that don't collide with itself or go out of bounds.
  */
 public class RandomBot implements SnakeBot {
     private Point head;
@@ -33,5 +33,10 @@ public class RandomBot implements SnakeBot {
         }
 
         return nextDirection;
+    }
+
+    @Override
+    public String toString() {
+        return "RandomBot";
     }
 }
