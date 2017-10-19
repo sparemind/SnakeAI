@@ -17,6 +17,12 @@ import java.util.List;
 import java.util.Queue;
 import java.util.Random;
 
+/**
+ * This program manages the game of Snake and allows bots to play it.
+ *
+ * @author Jake Chiang
+ * @version v1.1
+ */
 public class Main {
     /**
      * Width of the play area in number of cells. Must be even if perfect play is to be possible.
@@ -64,6 +70,7 @@ public class Main {
         grid.setColor(SNAKE, Color.BLACK);
 
         loadedBots = new LinkedList<>();
+        loadedBots.add(new GreedyTailBot());
         loadedBots.add(new GreedyBot());
         loadedBots.add(new BruteBot());
         loadedBots.add(new RandomBot());
@@ -150,7 +157,13 @@ public class Main {
      * Updates the GUI with the current score and number of moves taken by the bot.
      */
     private static void updateStats() {
-        score.setText("Score: " + foodEaten + " Moves: " + moves);
+        double ratio;
+        if (foodEaten == 0) {
+            ratio = Double.NaN;
+        } else {
+            ratio = Math.round(100.0 * moves / foodEaten) / 100.0;
+        }
+        score.setText("Moves: " + moves + " Score: " + foodEaten + " (Ratio: " + ratio + ")");
     }
 
     /**
