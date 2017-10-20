@@ -79,12 +79,6 @@ public class GreedyBot implements SnakeBot {
 
         Node startNode = new Node(this.head);
         startNode.gScore = 0;
-        if (target == null) {
-            System.out.println("T");
-        }
-        if (this.head == null) {
-            System.out.println("H");
-        }
         startNode.fScore = calcHeuristic(this.head, target);
         openSet.add(startNode);
         nodes.put(startNode.point, startNode);

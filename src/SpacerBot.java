@@ -7,16 +7,15 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.PriorityQueue;
-import java.util.Queue;
 import java.util.Set;
 
 /**
- * Strategy: Take the shortest path to the food. If no path exists, move towards the oldest body
- * part that can be moved to. If the snake would reach this oldest part in fewer moves than it would
- * take the part to disappear, the snake will attempt to stall for time by moving to the farthest
- * point away from its current location.
+ * Strategy: Attempt to take the shortest path to the food such that at least 1 cell of separation
+ * is maintained between any parts of the snake and the grid boundaries. If no such path exists,
+ * then attempt to take the shortest path to the food without the spacing restrictions. If this path
+ * doesn't exist, make random moves that don'd collide with itself or go out or bounds.
  */
-public class GreedyTailBot implements SnakeBot {
+public class SpacerBot implements SnakeBot {
     protected static class Node implements Comparable<Node> {
         public final Point point; // Position of this node
         public double gScore; // The real cost to reach this node
@@ -51,66 +50,56 @@ public class GreedyTailBot implements SnakeBot {
     }
 
     private Point head;
-    private Queue<Point> bodyParts;
-    // The number of moves left until a body part disappears.
-    private Map<Point, Integer> ages;
-    // The oldest body part that can be moved to
-    private Point oldestFoundPart;
-    // Path length of the last pathfinding
-    private int pathLength;
+    private List<Point> bodyParts;
 
     @Override
     public void initialize(Point start) {
         this.head = start;
         this.bodyParts = new LinkedList<>();
-        this.ages = new HashMap<>();
 
         this.bodyParts.add(this.head);
-        this.ages.put(this.head, 1);
     }
 
     @Override
     public Direction getMove() {
-        Direction nextDirection = pathfindTo(Main.getFoodPos());
+        Direction nextDirection = pathfindTo(Main.getFoodPos(), true);
         if (nextDirection == null) {
-            nextDirection = pathfindTo(this.oldestFoundPart);
-            if (this.pathLength != 1 && this.pathLength < this.ages.get(this.oldestFoundPart)) {
-                nextDirection = pathfindTo(getFarthestPoint());
-            }
+            nextDirection = pathfindTo(Main.getFoodPos(), false);
+        }
+        if (nextDirection == null) {
+            nextDirection = getRandomMove();
         }
         this.head = Main.get(this.head, nextDirection);
 
-        // If this move won't eat the food: Remove the tail and decrease the age of all body parts
-        if (!this.head.equals(Main.getFoodPos())) {
-            // Remove the tail
-            Point tail = this.bodyParts.remove();
-            this.ages.remove(tail);
+        if (this.head == null) {
+            return nextDirection;
+        }
 
-            // Update all body part ages
-            for (Point part : this.ages.keySet()) {
-                this.ages.put(part, this.ages.get(part) - 1);
-            }
+        // Remove the tail if this move won't eat the food
+        if (!this.head.equals(Main.getFoodPos())) {
+            this.bodyParts.remove(0);
         }
         this.bodyParts.add(this.head);
-        this.ages.put(this.head, this.bodyParts.size() - 1);
+
 
         return nextDirection;
     }
 
     /**
      * Calculates the shortest path from the snake's head to the given target point and returns the
-     * direction to move in order to take that path. Also determines the oldest body part of the
-     * snake that can be moved to.
+     * direction to move in order to take that path.
      *
-     * @param target The target location to find a path to.
+     * @param target     The target location to find a path to.
+     * @param leaveSpace Whether to place a spacing restriction on the path found that requires at
+     *                   least one cell of separation to be kept between snake parts and the grid
+     *                   boundaries.
      * @return The direction to move in order to take the shortest path from the snake's head to the
      * given target point.
      */
-    private Direction pathfindTo(Point target) {
+    private Direction pathfindTo(Point target, boolean leaveSpace) {
         PriorityQueue<Node> openSet = new PriorityQueue<>();
         Set<Node> closedSet = new HashSet<>();
         Map<Point, Node> nodes = new HashMap<>();
-        this.oldestFoundPart = this.head;
 
         Node startNode = new Node(this.head);
         startNode.gScore = 0;
@@ -124,9 +113,7 @@ public class GreedyTailBot implements SnakeBot {
 
             if (current.point.equals(target)) {
                 Direction nextDirection = current.directionToParent;
-                this.pathLength = 0;
                 while (!current.point.equals(this.head)) {
-                    this.pathLength++;
                     nextDirection = current.directionToParent;
                     current = nodes.get(Main.get(current.point, current.directionToParent));
                 }
@@ -138,16 +125,8 @@ public class GreedyTailBot implements SnakeBot {
             for (Direction d : Direction.values()) {
                 Node neighbor = new Node(Main.get(current.point, d));
 
-                // Ignore already evaluated nodes and ones that aren't traversable, unless it is the
-                // target point
-                if ((!Main.isSafe(neighbor.point) || closedSet.contains(neighbor)) && !target.equals(neighbor.point)) {
-                    // Update the oldest body part found.
-                    if (this.bodyParts.contains(neighbor.point)) {
-                        // System.out.println(neighbor.point + "," + this.oldestFoundPart + "," + this.head + "," + this.ages);
-                        if (this.ages.containsKey(neighbor.point) && (this.ages.get(neighbor.point) < this.ages.get(this.oldestFoundPart))) {
-                            this.oldestFoundPart = neighbor.point;
-                        }
-                    }
+                // Ignore already evaluated nodes and ones that aren't traversable
+                if (!isSafe(neighbor.point, leaveSpace) || closedSet.contains(neighbor)) {
                     continue;
                 }
 
@@ -193,6 +172,47 @@ public class GreedyTailBot implements SnakeBot {
     }
 
     /**
+     * Returns whether the given point is safe to move to given the spacing restrictions of having
+     * at least one cell of space between other snake parts and the grid boundaries.
+     *
+     * @param p          The point to check for safety.
+     * @param leaveSpace Whether the given point is required to have at least one cell of space
+     *                   between other snake parts and the grid boundaries.
+     * @return True if the given point is safe to move to and is safe to move to under the given
+     * spacing restriction, false otherwise.
+     */
+    private boolean isSafe(Point p, boolean leaveSpace) {
+        if (!Main.isSafe(p)) {
+            return false;
+        }
+        if (!leaveSpace) {
+            return true;
+        }
+
+        Point head1 = this.bodyParts.get(this.bodyParts.size() - 1);
+        Point head2 = head1;
+        if (this.bodyParts.size() >= 2) {
+            head2 = this.bodyParts.get(this.bodyParts.size() - 2);
+        }
+
+        for (int x = -1; x <= 1; x++) {
+            for (int y = -1; y <= 1; y++) {
+                Point neighbor = new Point(p.x + x, p.y + y);
+
+                if ((x == 0 && y == 0) || neighbor.equals(head1) || neighbor.equals(head2)) {
+                    continue;
+                }
+
+                if (!Main.isSafe(neighbor)) {
+                    return false;
+                }
+            }
+        }
+
+        return true;
+    }
+
+    /**
      * Returns a random movement direction that will not cause this snake to collide with itself or
      * go out of bounds.
      *
@@ -216,43 +236,8 @@ public class GreedyTailBot implements SnakeBot {
         return Direction.UP;
     }
 
-    /**
-     * Returns the point in the play area that would take the most number of moves to get to.
-     *
-     * @return The point in the play area that would take the most number of moves to get to.
-     */
-    private Point getFarthestPoint() {
-        Queue<Point> openSet1 = new LinkedList<>();
-        Queue<Point> openSet2 = new LinkedList<>();
-        Set<Point> closedSet = new HashSet<>();
-        openSet1.add(this.head);
-
-        Point farthest = this.head;
-        while (!openSet1.isEmpty()) {
-            while (!openSet1.isEmpty()) {
-                Point current = openSet1.remove();
-                closedSet.add(current);
-
-                for (Direction d : Direction.values()) {
-                    Point neighbor = Main.get(current, d);
-                    if (Main.isSafe(neighbor) && !closedSet.contains(neighbor)) {
-                        if (!openSet2.contains(neighbor)) {
-                            openSet2.add(neighbor);
-                            farthest = neighbor;
-                        }
-                    }
-                }
-            }
-            while (!openSet2.isEmpty()) {
-                openSet1.add(openSet2.remove());
-            }
-        }
-
-        return farthest;
-    }
-
     @Override
     public String toString() {
-        return "GreedyTailBot";
+        return "SpacerBot";
     }
 }

@@ -21,15 +21,17 @@ import java.util.Random;
  * This program manages the game of Snake and allows bots to play it.
  *
  * @author Jake Chiang
- * @version v1.1
+ * @version v1.2
  */
 public class Main {
     /**
-     * Width of the play area in number of cells. Must be even if perfect play is to be possible.
+     * Width of the play area in number of cells. Either this or GRID_WIDTH must be even if perfect
+     * play is to be possible.
      */
     public static final int GRID_HEIGHT = 20;
     /**
-     * Height of the play area in number of cells. Must be even if perfect player is to be possible.
+     * Height of the play area in number of cells. Either this or GRID_HEIGHT must be even if
+     * perfect play is to be possible.
      */
     public static final int GRID_WIDTH = 20;
     /**
@@ -70,6 +72,7 @@ public class Main {
         grid.setColor(SNAKE, Color.BLACK);
 
         loadedBots = new LinkedList<>();
+        loadedBots.add(new SpacerBot());
         loadedBots.add(new GreedyTailBot());
         loadedBots.add(new GreedyBot());
         loadedBots.add(new BruteBot());
