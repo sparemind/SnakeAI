@@ -8,7 +8,7 @@ players (bots) to play [Snake](https://en.wikipedia.org/wiki/Snake_(video_game))
 ## Overview ##
 
 Running this program will display a window on which the
-game automatically run and displayed on. The play speed
+game automatically runs and displays on. The play speed
 can be adjusted, and different bots can be selected using
 the controls at the bottom (switching bots can only occur
 when the game is stopped).
