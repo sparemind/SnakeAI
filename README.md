@@ -28,3 +28,7 @@ point away from its current location.
 is maintained between any parts of the snake and the grid boundaries. If no such path exists,
 then attempt to take the shortest path to the food without the spacing restrictions. If this path
 doesn't exist, make random moves that don'd collide with itself or go out or bounds.
+
+
+## License ##
+This project is licensed under the MIT license. See [LICENSE](LICENSE) for details.
